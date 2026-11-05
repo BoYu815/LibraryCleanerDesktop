@@ -1,0 +1,8 @@
+'use strict';
+const path=require('node:path'),fs=require('node:fs/promises'),os=require('node:os'),crypto=require('node:crypto');
+const fields=['codexExecutable','codexHome','deepseekHome'];
+function validate(input){const out={};for(const key of fields){const value=input?.[key];if(value===undefined||value==='')continue;if(typeof value!=='string'||value.length>4096||!path.isAbsolute(value)||/[\x00\r\n]/.test(value))throw Error('连接路径必须是有效的绝对路径。');if(key==='codexExecutable'&&path.basename(value).toLowerCase()!=='codex.exe')throw Error('请选择官方程序内的 codex.exe。');out[key]=path.normalize(value)}return out}
+function resolvePaths(settings,{home=os.homedir(),env=process.env,userData}={}){const s=validate(settings),useEnv=value=>typeof value==='string'&&path.isAbsolute(value)?path.normalize(value):undefined;const deepseekHome=s.deepseekHome||useEnv(env.DSH_HOME)||path.join(home,'.dsh');const codexHome=s.codexHome||useEnv(env.CODEX_HOME)||path.join(home,'.codex');const bridgeKey=crypto.createHash('sha256').update(deepseekHome.toLowerCase()).digest('hex').slice(0,16);return {codexExecutable:s.codexExecutable,codexHome,deepseekHome,bridgeDir:userData?path.join(userData,'deepseek-bridge',bridgeKey):undefined}}
+async function loadSettings(file){try{return validate(JSON.parse(await fs.readFile(file,'utf8')))}catch{return {}}}
+async function saveSettings(file,value){const settings=validate(value);await fs.mkdir(path.dirname(file),{recursive:true});const temp=file+'.tmp';await fs.writeFile(temp,JSON.stringify(settings,null,2),'utf8');await fs.rename(temp,file);return settings}
+module.exports={validate,resolvePaths,loadSettings,saveSettings,fields};

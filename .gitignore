@@ -1,0 +1,11 @@
+node_modules/
+release/
+extension/
+.smoke-profile/
+test-output/
+research/
+.env
+.env.*
+*.log
+project-connections.json
+connection.json
