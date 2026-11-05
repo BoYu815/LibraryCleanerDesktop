@@ -26,10 +26,12 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Install Electron runtime explicitly
+        run: node node_modules/electron/install.js
       - name: Run policy and project tests
         run: npm test
       - name: Build Windows desktop application
-        run: npm run dist
+        run: npm run dist -- --publish never
       - name: Package portable application
         shell: pwsh
         run: |
@@ -51,5 +53,5 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             throw "Release $tag already exists; no existing release files were replaced."
           }
-          gh release create $tag "release-assets/LibraryCleaner-$env:RELEASE_VERSION-win-x64.zip" "release-assets/SHA256SUMS.txt" --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "资料库管家 $env:RELEASE_VERSION · 简体中文桌面版" --notes-file 'docs/发布说明-1.1.0.md'
+          gh release create $tag "release-assets/LibraryCleaner-$env:RELEASE_VERSION-win-x64.zip" "release-assets/SHA256SUMS.txt" --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "资料库管家 $env:RELEASE_VERSION · 简体中文桌面版" --notes-file 'docs/发布说明-1.1.1.md'
           if ($LASTEXITCODE -ne 0) { throw "Release publication failed." }

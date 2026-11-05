@@ -43,5 +43,11 @@ win.showInactive();
 await until(async()=>{try{const image=await wc.capturePage();if(image.isEmpty())return false;fs.writeFileSync(path.join(out,'desktop-demo.png'),image.toPNG());return true}catch{return false}},'desktop rendering',5000);
 await query("root.querySelector('#lc-delete').click();return true");
 try{await until(()=>query("return root.querySelector('#lc-total').textContent==='0'"),'confirmed demo delete')}catch(error){console.log('DELETE DIAGNOSTIC',{downloads:getDownloadProgress(),backendCalls:getSession().demo.deleteCalls,files:getSession().demo.files.length,shellStatus:await win.webContents.executeJavaScript("document.querySelector('#message').textContent")});throw error}assert.equal(getSession().demo.files.length,0);mark('selected demo deletion requires a scoped native approval');
+getSession().demo.setAccountState('signed-out');
+await wc.executeJavaScript("window.postMessage({channel:'LC_BRIDGE_V240',type:'REQUEST_ACCOUNT',payload:{}},location.origin)");
+await until(()=>query("return root.querySelector('#lc-status').dataset.state==='error' && root.querySelector('#lc-status').textContent.includes('请先登录') && !root.querySelector('#lc-sync').disabled && root.querySelector('#lc-sync').textContent.includes('重试识别')"),'account failure retry action');mark('unrecognized account ends with a visible explanation and an enabled retry action');
+getSession().demo.setAccountState('ready');
+await query("root.querySelector('#lc-sync').click();return true");
+await until(()=>query("return root.querySelector('#lc-status').dataset.state==='ready' && !root.querySelector('#lc-sync').disabled && root.querySelector('#lc-sync').textContent.includes('同步')"),'account retry recovery');mark('account identification retry recovers without clearing the login partition');
 approvals.revoke();fs.writeFileSync(path.join(out,'smoke-results.json'),JSON.stringify({passed:checks.length,checks},null,2));console.log('Desktop smoke tests passed.');}
 module.exports={run};

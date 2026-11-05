@@ -75,9 +75,10 @@ guest.webContents.on('render-process-gone',()=>status('页面意外关闭，请�
 status(demoMode?'演示模式 · 使用虚构数据':'正在连接 ChatGPT…',true);
 await guest.webContents.loadURL(CHAT_ORIGIN+'/library');
 }
-async function action(name){if(!['home','reload','connect','demo','signout','projects'].includes(name))throw Error('Unsupported action');if(smoke&&name==='connect')throw Error('Live connection disabled in smoke test');
+async function action(name){if(!['home','reload','connect','demo','signout','projects','login'].includes(name))throw Error('Unsupported action');if(smoke&&name==='connect')throw Error('Live connection disabled in smoke test');
 if(name==='projects'){if(downloadProgress){status('请等待备份完成。');return}closeGuest();mode='projects';status('桌面项目管理 · 移除项目不会清理硬盘文件。');return}
 if(name==='home'){if(downloadProgress){status('请等待备份完成。');return}closeGuest();mode='home';status('准备就绪');return}
+if(name==='login'){if(mode==='live'&&guest)await guest.webContents.loadURL(CHAT_ORIGIN+'/');return}
 if(name==='reload'){if(guest)guest.webContents.reload();return}
 if(name==='demo')return openLibrary(true);
 if(name==='connect'){if(mode==='live'&&guest){await guest.webContents.loadURL(CHAT_ORIGIN+'/library');return}return openLibrary(false)}
