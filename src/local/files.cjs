@@ -10,12 +10,16 @@ class FileIndex{
   constructor({limit=25000,trash}={}){this.limit=limit;this.trash=trash;this.entries=new Map();this.watchers=[];this.closed=false}
   async scan(projects,{onProgress}={}){
     const entries=new Map(),rows=[],resultProjects=[],warnings=[],seen=new Set();
+    const pathKey=value=>process.platform==='win32'?path.normalize(value).toLowerCase():path.normalize(value);
+    const canonicalRoots=new Map();
+    for(const project of projects)for(const root of project.roots)if(!canonicalRoots.has(root))canonicalRoots.set(root,await fs.realpath(root).catch(()=>null));
+    const rootOwners=new Map();for(const project of projects)for(const root of project.roots){const canonical=canonicalRoots.get(root);if(!canonical)continue;const id=pathKey(canonical);if(!rootOwners.has(id))rootOwners.set(id,new Set());rootOwners.get(id).add(project.id)}
     let lastUpdate=0,lastSent=0;
     const progress=project=>{if(!onProgress||Date.now()-lastUpdate<500)return;lastUpdate=Date.now();const pending=projects.filter(p=>!resultProjects.some(done=>done.id===p.id)).map(p=>({...p,count:0,bytes:0,missing:[]}));onProgress({projects:[...resultProjects,...pending],chunkFiles:rows.slice(lastSent),message:'正在扫描：'+project.name});lastSent=rows.length};
     for(const project of [...projects].sort((a,b)=>Number(!!b.parentId)-Number(!!a.parentId))){
       const result={...project,count:0,bytes:0,missing:[],truncated:false};resultProjects.push(result);
       for(const root of project.roots){
-        let canonical;try{canonical=await fs.realpath(root);if(!(await fs.stat(canonical)).isDirectory())throw Error()}catch{result.missing.push(root);continue}
+        let canonical;try{canonical=canonicalRoots.get(root);if(!canonical||!(await fs.stat(canonical)).isDirectory())throw Error()}catch{result.missing.push(root);continue}
         const stack=[canonical];
         while(stack.length&&result.count<this.limit){
           const dir=stack.pop();let items;try{items=await fs.readdir(dir,{withFileTypes:true})}catch{warnings.push('无法读取：'+dir);continue}
@@ -24,12 +28,12 @@ class FileIndex{
             if(result.count>=this.limit){result.truncated=true;break}
             if(item.isSymbolicLink()||skipped.has(item.name)||item.name.startsWith('.'))continue;
             const file=path.join(dir,item.name);
-            if(item.isDirectory()){if(!projects.some(p=>p.id!==project.id&&p.roots.some(r=>path.resolve(r)===file)))stack.push(file);continue}
+            if(item.isDirectory()){const owners=rootOwners.get(pathKey(file));if(!owners||![...owners].some(id=>id!==project.id))stack.push(file);continue}
             if(!item.isFile()||ignoredName(item.name))continue;
             try{
               const stat=await fs.lstat(file);if(!stat.isFile()||stat.isSymbolicLink())continue;
               const real=await fs.realpath(file);if(!inside(canonical,real)||real!==file)continue;
-              const identity=project.id+'|'+real.toLowerCase();if(seen.has(identity))continue;seen.add(identity);
+              const identity=project.id+'|'+pathKey(real);if(seen.has(identity))continue;seen.add(identity);
               const id=key(identity),row={id,projectId:project.id,name:item.name,path:real,folder:path.dirname(real),type:kind(real),size:stat.size,modified:stat.mtimeMs,fingerprint:fingerprint(real,stat),source:project.source};
               entries.set(id,{...row,root:canonical});rows.push(row);result.count++;result.bytes+=stat.size;
               if(result.count%200===0)progress(project);

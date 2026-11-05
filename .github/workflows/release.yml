@@ -29,7 +29,7 @@ jobs:
         run: npm ci
       - name: Install Electron runtime explicitly
         run: node node_modules/electron/install.js
-      - name: Run policy and project tests
+      - name: Run portability and file operation tests
         run: npm test
       - name: Build Windows desktop application
         run: npm run dist -- --publish never
