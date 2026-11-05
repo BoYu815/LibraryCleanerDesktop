@@ -1,10 +1,10 @@
 {
   "name": "library-cleaner-desktop",
-  "version": "1.1.2",
+  "version": "2.0.0",
   "private": true,
-  "description": "ChatGPT 云端资料库的本地桌面管理工具",
+  "description": "按项目自动定位和监测 GPT/Codex 与 DeepSeek 的本地生成文件",
   "author": "Local build",
-  "main": "src/main.cjs",
+  "main": "src/local-main.cjs",
   "scripts": {
     "prepare:app": "node scripts/prepare.cjs",
     "start": "npm run prepare:app && electron .",
@@ -19,26 +19,24 @@
   },
   "build": {
     "appId": "local.librarycleaner.desktop",
-    "productName": "资料库管家",
+    "productName": "生成文件管家",
     "executableName": "LibraryCleaner",
     "asar": true,
     "electronDist": "node_modules/electron/dist",
     "files": [
-      "src/**/*",
+      "src/local/**/*",
+      "src/local-main.cjs",
+      "src/local-preload.cjs",
+      "src/local-shell.*",
+      "src/icon.png",
+      "src/projects/codex.cjs",
+      "src/projects/settings.cjs",
       "package.json"
     ],
     "extraResources": [
       {
-        "from": "extension",
-        "to": "extension"
-      },
-      {
         "from": "THIRD_PARTY_NOTICES.md",
         "to": "THIRD_PARTY_NOTICES.md"
-      },
-      {
-        "from": "bridge",
-        "to": "bridge"
       }
     ],
     "directories": {

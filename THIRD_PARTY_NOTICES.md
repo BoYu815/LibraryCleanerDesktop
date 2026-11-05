@@ -1,11 +1,9 @@
 # Third-party components
 
-This personal desktop adaptation includes GPT Library Cleaner 2.7.0 supplied by the user from `GPT-Library-Cleaner-main (1).zip`.
+LibraryCleanerDesktop began as a personal adaptation of GPT Library Cleaner 2.7.0 supplied by the user. Upstream: https://github.com/index7777/GPT-Library-Cleaner . The supplied archive contained no LICENSE. Original files remain in vendor/original for historical builds; this repository does not grant or change rights to upstream code or artwork.
 
-Upstream project: https://github.com/index7777/GPT-Library-Cleaner
+Version 2.0 implements a local project file manager independently: project discovery, file indexing, monitoring, platform switching, and Windows recycle operations. The 2.0 executable does not bundle or load the original browser extension or old cloud library interface. The application icon is derived from the supplied original icon; review upstream terms before further redistribution.
 
-The original files and README are retained in `vendor/original`. The supplied archive did not contain a LICENSE file. This build does not grant or change rights to the original project. Review upstream terms before redistributing it.
+Electron and Chromium license information is included with the executable. No third-party rights are implied by this build.
 
-Electron and Chromium license information is included in the application directory. The desktop wrapper adds a standalone window, isolated local login storage, native ZIP saving, scoped confirmation for destructive requests, and an offline demonstration.
-
-This is an unofficial personal utility, not an OpenAI product. Login and cloud operations connect directly to ChatGPT using the user's own session; there is no developer-operated server.
+This is an unofficial utility, not an OpenAI or DeepSeek product. Local file contents are not sent to a developer-operated server.
