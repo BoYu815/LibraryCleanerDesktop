@@ -14,6 +14,8 @@ function adaptAccountHook(hook, detectorSource) {
 }
 function adaptAccountUI(content) {
   content=content.replace(/\r\n/g,'\n');
+  content=replaceOnce(content,'  injectBridge();',"  desktopViewMode.then(mode => { if (mode !== 'login') injectBridge(); });");
+  content=replaceOnce(content,'  const init = async () => {',"  const init = async () => {\n    if (await desktopViewMode === 'login') return;");
   content=replaceOnce(content,'    accountReady: false,',"    accountReady: false,\n    accountStatus: {state: 'checking', message: '正在读取当前 ChatGPT 登录会话…'},\n    pendingAccount: undefined,");
   content=replaceOnce(content,'    ui.sync.disabled = !state.accountReady || !state.bridgeReady;',"    ui.sync.disabled = !state.bridgeReady || (!state.accountReady && state.accountStatus.state === 'checking');");
   content=replaceOnce(content,"      ui.status.dataset.state = 'pending';\n      statusText.textContent = '帳號識別中';", "      const labels = {'checking':'账号识别中','signed-out':'请先登录','network-error':'识别超时','blocked':'等待网页验证','unavailable':'识别未完成'};\n      ui.status.dataset.state = state.accountStatus.state === 'checking' ? 'pending' : 'error';\n      statusText.textContent = labels[state.accountStatus.state] || '识别未完成';");

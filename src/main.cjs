@@ -16,7 +16,7 @@ if(smoke)app.setPath('userData',path.join(testRoot,'.smoke-profile'));
 app.setName('LibraryCleanerDesktop');app.commandLine.appendSwitch('lang','zh-CN');app.enableSandbox();app.disableHardwareAcceleration();
 const gotLock=smoke||app.requestSingleInstanceLock();if(!gotLock)app.quit();
 const shellPath=path.join(__dirname,'shell.html');
-let win,guest,mode='home',activeSession,activeAccount='',downloadProgress=0;
+let win,guest,mode='home',activeSession,activeAccount='',downloadProgress=0,loginView=false;
 const approvals=new DeleteApproval(),prepared=new Set();
 const cloudProjects=new CloudProjects();let projectManager,projectDemoManager=new ProjectManager(demoProviders()),projectUseDemo=smoke;
 const popups=new Set();
@@ -66,22 +66,22 @@ ses.on('will-download',(_event,item,contents)=>{
 });
 if(demoMode){const {createDemo}=require('./demo.cjs');ses.demo=createDemo();await ses.protocol.handle('https',request=>ses.demo.handle(request));}
 }
-async function openLibrary(demoMode=false){if(downloadProgress){status('请等待当前备份保存完成。');return}closeGuest();mode=demoMode?'demo':'live';activeSession=session.fromPartition(demoMode?'persist:cleaner-demo-v1':'persist:cleaner-account-v1');await prepareSession(activeSession,demoMode);
-guest=new WebContentsView({webPreferences:{...guestOptions,session:activeSession,backgroundThrottling:!smoke}});win.contentView.addChildView(guest);resize();guardContents(guest.webContents);
+async function openLibrary(demoMode=false,loginOnly=false){if(downloadProgress){status('请等待当前备份保存完成。');return}closeGuest();loginView=loginOnly;mode=demoMode?'demo':'live';activeSession=session.fromPartition(demoMode?'persist:cleaner-demo-v1':'persist:cleaner-account-v1');await prepareSession(activeSession,demoMode);
+guest=new WebContentsView({webPreferences:{...guestOptions,session:activeSession,backgroundThrottling:!smoke,additionalArguments:loginOnly?['--cleaner-login-view']:[]}});win.contentView.addChildView(guest);resize();guardContents(guest.webContents);
 guest.webContents.on('did-start-loading',()=>status(demoMode?'正在打开演示数据…':'正在连接 ChatGPT，请在窗口内自行登录。',true));
-guest.webContents.on('did-stop-loading',()=>status(demoMode?'演示模式：以下文件均为虚构。真实账号不受影响。':isLibrary(guest.webContents.getURL())?'点击“同步”读取云端资料库。':'请在当前窗口完成登录，再点击“打开资料库”。'));
+guest.webContents.on('did-stop-loading',()=>status(demoMode?'演示模式：以下文件均为虚构。真实账号不受影响。':loginOnly?'请在原始网页完成登录，再主动点击顶部打开资料库。':isLibrary(guest.webContents.getURL())?'点击“同步”读取云端资料库。':'请在当前窗口完成登录，再点击“打开资料库”。'));
 guest.webContents.on('did-fail-load',(_event,code,_description,_url,isMainFrame)=>{if(isMainFrame&&code!==-3)status('页面连接失败（'+code+'）。请检查网络后点击“刷新”。')});
 guest.webContents.on('render-process-gone',()=>status('页面意外关闭，请点击“刷新”恢复。'));
 status(demoMode?'演示模式 · 使用虚构数据':'正在连接 ChatGPT…',true);
-await guest.webContents.loadURL(CHAT_ORIGIN+'/library');
+await guest.webContents.loadURL(CHAT_ORIGIN+(loginOnly?'/':'/library'));
 }
 async function action(name){if(!['home','reload','connect','demo','signout','projects','login'].includes(name))throw Error('Unsupported action');if(smoke&&name==='connect')throw Error('Live connection disabled in smoke test');
 if(name==='projects'){if(downloadProgress){status('请等待备份完成。');return}closeGuest();mode='projects';status('桌面项目管理 · 移除项目不会清理硬盘文件。');return}
 if(name==='home'){if(downloadProgress){status('请等待备份完成。');return}closeGuest();mode='home';status('准备就绪');return}
-if(name==='login'){if(mode==='live'&&guest)await guest.webContents.loadURL(CHAT_ORIGIN+'/');return}
+if(name==='login')return openLibrary(false,true);
 if(name==='reload'){if(guest)guest.webContents.reload();return}
 if(name==='demo')return openLibrary(true);
-if(name==='connect'){if(mode==='live'&&guest){await guest.webContents.loadURL(CHAT_ORIGIN+'/library');return}return openLibrary(false)}
+if(name==='connect'){if(mode==='live'&&guest){if(loginView)return openLibrary(false,false);await guest.webContents.loadURL(CHAT_ORIGIN+'/library');return}return openLibrary(false,true)}
 if(name==='signout'){if(mode!=='live')return;const r=await dialog.showMessageBox(win,{type:'question',title:'退出本机登录',message:'退出登录并清除本机的登录状态和缓存？',detail:'不会删除云端资料库文件。下次连接需要重新登录。',buttons:['取消','退出登录'],defaultId:0,cancelId:0,noLink:true});if(r.response!==1)return;const ses=activeSession;closeGuest();await ses.clearStorageData();await ses.clearCache();mode='home';status('已退出登录。')}
 }
 async function createWindow(){win=new BrowserWindow({title:'资料库管家',width:1280,height:850,minWidth:920,minHeight:640,show:!smoke,backgroundColor:'#faf9f6',icon:path.join(__dirname,'icon.png'),autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'shell-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false}});

@@ -13,6 +13,12 @@ win.showInactive();await until(async()=>{try{const image=await win.webContents.c
 await win.webContents.executeJavaScript("document.querySelector('.project-remove').click()");
 await until(()=>win.webContents.executeJavaScript("document.querySelectorAll('.project-row').length===0"),'demo project removal');mark('confirmed demo removal re-reads the source provider');
 await win.webContents.executeJavaScript("document.querySelector('#home').click()");
+await openLibrary(true,true);
+const loginWc=getGuest().webContents;
+await loginWc.loadURL('https://chatgpt.com/library');
+const loginOnly=await loginWc.executeJavaScript(`new Promise(resolve=>{const id=crypto.randomUUID();const listener=e=>{if(e.source===window&&e.origin===location.origin&&e.data?.channel==='LC_DESKTOP_NATIVE_V1'&&e.data.type==='VIEW_MODE_RESULT'&&e.data.requestId===id){window.removeEventListener('message',listener);resolve(e.data.mode)}};window.addEventListener('message',listener);window.postMessage({channel:'LC_DESKTOP_NATIVE_V1',type:'GET_VIEW_MODE',requestId:id},location.origin);setTimeout(()=>resolve('timeout'),3000)})`);
+assert.equal(loginOnly,'login');
+assert.equal(await loginWc.executeJavaScript("new Promise(resolve=>setTimeout(()=>resolve(!document.querySelector('#lc-extension-host')),900))"),true);mark('login-only view preserves the original webpage even on the library route');
 await openLibrary(true);const wc=getGuest().webContents;wc.on('console-message',event=>console.log('RENDERER '+event.message));
 const query=body=>wc.executeJavaScript(`(()=>{const root=document.querySelector('#lc-extension-host')?.shadowRoot;${body}})()`);
 await until(()=>query("return !!root?.querySelector('#lc-panel.is-open')"),'desktop panel');mark('bundled interface loads without a browser extension installation');
