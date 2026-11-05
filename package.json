@@ -1,6 +1,6 @@
 {
   "name": "library-cleaner-desktop",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "按项目自动定位和监测 GPT/Codex 与 DeepSeek 的本地生成文件",
   "author": "Local build",

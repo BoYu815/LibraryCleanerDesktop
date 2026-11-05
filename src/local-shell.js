@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id),labels={codex:'GPT / Codex',deepseek:'DeepSeek',manual:'关联的项目',downloads:'待归类'};
-let state={projects:[],files:[],warnings:[],busy:true},active='all',activePlatform='all',page=0,selected=new Map(),visible=[],searchTimer;
+let state={projects:[],files:[],warnings:[],busy:true},active='all',activePlatform='all',page=0,selected=new Map(),visible=[],searchTimer,deletePlan;
 const size=n=>n>=1073741824?(n/1073741824).toFixed(1)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':n>=1024?Math.round(n/1024)+' KB':n+' B';
 const date=n=>new Date(n).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el};
@@ -11,7 +11,7 @@ function choose(id){active=id;page=0;selected.clear();render();animate()}
 const platformFiles=()=>{const allowed=new Set(state.projects.filter(p=>activePlatform==='all'||p.platform===activePlatform).map(p=>p.id));return state.files.filter(f=>allowed.has(f.projectId))};
 function sidebar(){
   const container=$('projects'),scrollTop=container.scrollTop;container.replaceChildren();
-  const item=(id,name,count)=>{const button=node('button','project'+(active===id?' active':''));button.dataset.projectId=id;button.append(node('span','folder','▱'),node('span','name',name),node('span','number',String(count)));button.title=name;button.onclick=()=>choose(id);return button};
+  const item=(id,name,count)=>{const button=node('button','project'+(active===id?' active':''));button.dataset.projectId=id;button.append(node('span','folder','▱'),node('span','name',name),node('span','number',String(count)));button.title=id==='all'?name:name+' · 右键可删除这一项';button.onclick=()=>choose(id);if(id!=='all')button.oncontextmenu=event=>{event.preventDefault();perform(()=>window.files.projectMenu(id))};return button};
   container.append(item('all',activePlatform==='all'?'全部项目':labels[activePlatform]+' 项目',new Set(platformFiles().map(f=>f.path)).size));
   for(const platform of ['codex','deepseek','manual','downloads']){if(activePlatform!=='all'&&activePlatform!==platform)continue;const projects=state.projects.filter(p=>p.platform===platform);if(!projects.length)continue;container.append(node('div','project-group',labels[platform]));for(const p of projects.filter(p=>!p.parentId)){container.append(item(p.id,p.name,p.count||0));for(const child of projects.filter(c=>c.parentId===p.id)){const button=item(child.id,child.name,child.count||0);button.classList.add('child-project');container.append(button)}}}
   container.scrollTop=scrollTop;
@@ -45,7 +45,15 @@ function render(){
   $('codex-home').textContent=state.homes?.codexHome||'自动定位';$('deepseek-home').textContent=state.homes?.deepseekHome||'自动定位';
   $('status').textContent=state.message||(state.busy?'正在查找项目与扫描文件…':'已监测 '+state.projects.length+' 个项目 · '+(state.checkedAt?'更新于 '+new Date(state.checkedAt).toLocaleTimeString('zh-CN'):'')+(state.warnings.length?' · '+state.warnings.length+' 条扫描提示':''));$('status').title=state.warnings.join('\n')||$('status').textContent;
   selection();
+  $('recovery-open').textContent='回收区'+(state.recoveryCount?' · '+state.recoveryCount:'')+' · 保留 7 天';
 }
+function showDeletePlan(plan){deletePlan=plan;$('delete-title').textContent='删除“'+plan.name+'”';$('delete-summary').textContent=plan.files+' 个文件 · '+size(plan.bytes);$('delete-paths').textContent=plan.paths.join('\n');$('include-conversations').checked=plan.conversationSupported&&plan.conversations.length>0;$('include-conversations').disabled=!plan.conversationSupported||!plan.conversations.length;$('conversation-label').textContent='包含明确关联的 '+plan.conversations.length+' 条对话';$('delete-notice').textContent=plan.notice;const list=$('conversation-list');list.replaceChildren();for(const row of plan.conversations){const el=node('div','conversation-name',row.name);el.title=row.id;list.append(el)}if(!$('delete-dialog').open)$('delete-dialog').showModal()}
+async function recovery(){
+  const items=await window.files.recoveryList(),list=$('recovery-list');list.replaceChildren();if(!items.length)list.append(node('p','muted','回收区是空的。'));
+  for(const item of items){const row=node('div','recovery-row'),info=node('div'),days=Math.max(0,Math.ceil((item.expiresAt-Date.now())/86400000));info.append(node('strong','',item.name),node('p','muted',item.files+' 个文件 · '+item.conversations+' 条对话 · '+(days?'剩余 '+days+' 天':'已到期，等待清理')),node('p','muted','到期：'+new Date(item.expiresAt).toLocaleString('zh-CN')));if(item.error)info.append(node('p','recovery-error',item.error));const button=node('button','restore-item','恢复');button.dataset.recoveryId=item.id;button.onclick=async()=>{button.disabled=true;try{await window.files.restore(item.id);await recovery()}catch(error){$('recovery-note').textContent=error.message;button.disabled=false}};row.append(info,button);list.append(row)}
+}
+window.files.onDeletePlan(showDeletePlan);$('delete-cancel').onclick=()=>$('delete-dialog').close();$('delete-confirm').onclick=async()=>{if(!deletePlan)return;const button=$('delete-confirm');button.disabled=true;try{const result=await window.files.removeProject({token:deletePlan.token,includeConversations:$('include-conversations').checked});if(!result?.cancelled){$('delete-dialog').close();deletePlan=null}}catch(error){$('delete-notice').textContent=error.message}finally{button.disabled=false}};
+$('recovery-open').onclick=()=>perform(async()=>{await recovery();$('recovery-dialog').showModal()});
 window.files.onState(next=>{if(next.chunkFiles){const map=new Map(state.files.map(f=>[f.id,f]));for(const file of next.chunkFiles)map.set(file.id,file);next={...next,files:[...map.values()]};delete next.chunkFiles}state={...state,...next};render()});
 $('refresh').onclick=()=>perform(()=>window.files.refresh());
 for(const id of ['add-project','empty-add'])$(id).onclick=()=>perform(()=>window.files.addProject());
